@@ -2533,9 +2533,7 @@ rangy.createModule("DomUtil", function(api, module) {
     if (util.areHostMethods(testSelection, ["addRange", "getRangeAt", "removeAllRanges"]) &&
             typeof testSelection.rangeCount == "number" && api.features.implementsDomRange) {
 
-        (function() {
-            var iframe = document.createElement("iframe");
-            body.appendChild(iframe);
+        var testIframeLoaded = function(iframe) {
 
             var iframeDoc = dom.getIframeDocument(iframe);
             iframeDoc.open();
@@ -2568,7 +2566,19 @@ rangy.createModule("DomUtil", function(api, module) {
             r2.detach();
 
             body.removeChild(iframe);
-        })();
+        }
+
+        var iframe = document.createElement("iframe");
+        iframe.src = 'javascript:(function () {' +'document.open();document.domain=\'' + document.domain + '\';document.close();' + '})();';
+
+        iframe.onreadystatechange = function() {
+          if (/complete/.test(iframe.readyState)) {
+            iframe.onreadystatechange = iframe.onload = null;
+            testIframeLoaded(iframe);
+          }
+        };
+
+        body.appendChild(iframe);
     }
 
     api.features.selectionSupportsMultipleRanges = selectionSupportsMultipleRanges;
@@ -5400,11 +5410,17 @@ wysihtml5.dom.replaceWithChildNodes = function(node) {
      *    on the onreadystatechange event
      */
     _createIframe: function() {
-      var that   = this,
-          iframe = doc.createElement("iframe");
+      var that   = this;
+      var iframe = document.createElement('iframe');
+
+      var ie = window.navigator.userAgent.match(/MSIE\s/);
+      if (ie) {
+        iframe.src = 'javascript:(function () {' +'document.open();document.domain=\'' + document.domain + '\';document.close();' + '})();';
+      };
+
       iframe.className = "wysihtml5-sandbox";
+
       wysihtml5.dom.setAttributes({
-        "security":           "restricted",
         "allowtransparency":  "true",
         "frameborder":        0,
         "width":              0,
@@ -5413,18 +5429,19 @@ wysihtml5.dom.replaceWithChildNodes = function(node) {
         "marginheight":       0
       }).on(iframe);
 
+      $(iframe).appendTo(document.body)
       // Setting the src like this prevents ssl warnings in IE6
       if (wysihtml5.browser.throwsMixedContentWarningWhenIframeSrcIsEmpty()) {
         iframe.src = "javascript:'<html></html>'";
       }
 
-      iframe.onload = function() {
-        iframe.onreadystatechange = iframe.onload = null;
-        that._onLoadIframe(iframe);
-      };
+      //iframe.onload = function() {
+        //iframe.onreadystatechange = iframe.onload = null;
+        //that._onLoadIframe(iframe);
+      //};
 
       iframe.onreadystatechange = function() {
-        if (/loaded|complete/.test(iframe.readyState)) {
+        if (/complete/.test(iframe.readyState)) {
           iframe.onreadystatechange = iframe.onload = null;
           that._onLoadIframe(iframe);
         }
